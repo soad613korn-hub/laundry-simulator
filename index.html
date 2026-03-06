@@ -331,23 +331,6 @@
   }
   .bk-eq-row { display:flex;justify-content:space-between;color:var(--text-dim);font-family:var(--mono); }
   
-  /* ═══ LOGO UPLOAD ═══ */
-  .logo-upload {
-    margin:12px;border-radius:var(--r-md);min-height:80px;
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;transition:all 0.2s;overflow:hidden;
-    border:2px dashed var(--border-dark);background:var(--surface);
-    flex-shrink:0;
-  }
-  .logo-upload:hover { border-color:var(--primary);background:var(--bg); }
-  .logo-upload.has-image { border-style:solid;border-color:var(--border-light); }
-  .logo-placeholder {
-    display:flex;flex-direction:column;align-items:center;gap:4px;
-    font-family:var(--jp);font-size:10px;color:var(--text-dim);pointer-events:none;
-  }
-  .logo-placeholder span:first-child { font-size:22px; }
-  #logoImg { width:100%;height:100%;object-fit:contain;max-height:120px;display:none; }
-
   /* ═══ FOOTER ═══ */
   .footer {
     flex-shrink:0;text-align:center;padding:8px;
@@ -442,8 +425,6 @@
     .bk-section.green { background:#EFF6FF !important; color:#2563EB !important; }
     .bk-row.total { background:#F0F6FF !important; }
     .bk-equation { background:#F0F6FF !important; }
-    .logo-upload { border:1px solid #C0D4F0 !important; cursor:default; }
-    .logo-placeholder { display:none !important; }
   }
 </style>
 </head>
@@ -729,17 +710,7 @@
 
         </div>
 
-        <!-- ロゴ・画像フリー枠 -->
-        <div class="logo-upload" id="logoArea" onclick="document.getElementById('logoInput').click()">
-          <input type="file" id="logoInput" accept="image/*" style="display:none" onchange="loadLogo(event)">
-          <div class="logo-placeholder" id="logoPlaceholder">
-            <span>🏢</span>
-            <span>ロゴ・画像をクリックしてアップロード</span>
-          </div>
-          <img id="logoImg" alt="ロゴ画像">
         </div>
-
-      </div>
 
       <div class="footer">© 2026 LAUNDRY COST OPTIMIZER</div>
     </div>
@@ -860,21 +831,6 @@ function calc() {
 
 calc();
 
-function loadLogo(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = document.getElementById('logoImg');
-    const placeholder = document.getElementById('logoPlaceholder');
-    const area = document.getElementById('logoArea');
-    img.src = e.target.result;
-    img.style.display = 'block';
-    placeholder.style.display = 'none';
-    area.classList.add('has-image');
-  };
-  reader.readAsDataURL(file);
-}
 </script>
 </body>
 </html>
