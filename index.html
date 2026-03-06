@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>私物洗濯コスト シミュレーター (WIZAI版)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    /* Base colors - White & Blue theme */
+    --bg: #F0F6FF;
+    --bg-warm: #E8F0FE;
+    --surface: #FFFFFF;
+    --surface-inset: #EBF3FF;
+    --surface-dark: #1E3A5F;
+    --border: #C0D4F0;
+    --border-light: #D6E6FA;
+    --border-dark: #93B8E8;
+    --text: #1E293B;
+    --text-2: #334155;
+    --text-mid: #64748B;
+    --text-dim: #94A3B8;
+    --ink: #0F172A;
+
+    /* Theme accents - Blue palette */
+    --primary: #1a6bc4;
+    --primary-light: rgba(26,107,196,0.1);
+    --copper: #2563EB;
+    --copper-light: #60A5FA;
+    --copper-bg: rgba(37,99,235,0.06);
+    --copper-border: rgba(37,99,235,0.18);
+    --emerald: #2563EB;
+    --emerald-bg: rgba(37,99,235,0.06);
+    --emerald-border: rgba(37,99,235,0.18);
+    --red: #DC2626;
+
+    /* Fonts */
+    --display: 'Fraunces', 'Noto Sans JP', serif;
+    --sans: 'Instrument Sans', 'Noto Sans JP', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --jp: 'Noto Sans JP', sans-serif;
+    
+    /* Radius */
+    --r: 6px; --r-md: 10px; --r-lg: 12px;
+  }
+
+  * { margin:0;padding:0;box-sizing:border-box; }
+  html, body {
+    height:100%;overflow:hidden;
+    font-family:var(--sans);background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app { display:flex;flex-direction:column;height:100vh;min-height:0; }
+
+  /* Grid background pattern */
+  body::before {
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.3;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ═══ HEADER ═══ */
+  .header {
+    flex-shrink:0;position:relative;z-index:2;
+    border-bottom:1px solid var(--border);background:var(--surface);
+  }
+  .header-inner {
+    max-width:1800px;margin:0 auto;padding:0 32px;height:52px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .header-left { display:flex;align-items:center;gap:20px; }
+  .logo-row { display:flex;align-items:center;gap:10px; }
+  .logo-mark {
+    width:28px;height:28px;border-radius:6px;
+    background:var(--primary);display:flex;align-items:center;justify-content:center;
+  }
+  .logo-mark span { font-size:14px;color:#fff; }
+  .logo-text { font-family:var(--display);font-weight:700;font-size:15px;color:var(--ink);letter-spacing:1.5px; }
+  .logo-text .sub { font-family:var(--sans);font-weight:600;font-size:8px;color:var(--primary);letter-spacing:1px;text-transform:uppercase;display:block;margin-top:2px; }
+  .header-sep { width:1px;height:22px;background:var(--border); }
+  .header-title { font-family:var(--jp);font-size:12px;font-weight:600;color:var(--text-2); }
+  
+  .header-right { display:flex;align-items:center;gap:12px; }
+  .header-badge {
+    display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;
+    background:var(--emerald-bg);border:1px solid var(--emerald-border);
+    font-family:var(--mono);font-size:10px;color:var(--emerald);font-weight:600;
+  }
+  .header-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--emerald);box-shadow:0 0 6px rgba(37,99,235,0.4);animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.2} }
+  
+  .print-btn {
+    display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;
+    background:transparent;border:1px solid var(--border);
+    font-family:var(--sans);font-size:11px;font-weight:600;color:var(--text-mid);cursor:pointer;transition:all 0.2s;
+  }
+  .print-btn:hover { background:var(--surface-inset);color:var(--text-2); }
+
+  /* ═══ MAIN DASHBOARD (3 COLUMNS) ═══ */
+  .main {
+    flex:1;min-height:0;position:relative;z-index:1;
+    max-width:1800px;width:100%;margin:0 auto;
+    padding:16px 24px 12px;
+    display:grid;grid-template-columns:350px 1fr 340px;gap:16px;
+  }
+  /* Column flex container */
+  .col { display:flex;flex-direction:column;gap:12px;min-height:0; }
+
+  /* ═══ PANEL ═══ */
+  .panel {
+    background:var(--surface);border-radius:var(--r-lg);
+    border:1px solid var(--border-light);
+    box-shadow:0 1px 3px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.02);
+    display:flex;flex-direction:column;
+    animation:panelIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    overflow:hidden;
+  }
+  /* Staggered animation */
+  .col:nth-child(2) .panel { animation-delay:0.04s; }
+  .col:nth-child(3) .panel { animation-delay:0.08s; }
+  @keyframes panelIn { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
+  
+  /* Grow panel to fill vertical space */
+  .panel.grow { flex:1;min-height:0;}
+
+  .panel-head {
+    padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border-light);flex-shrink:0;
+    background:rgba(255,255,255,0.8);backdrop-filter:blur(8px);
+    z-index:10;
+  }
+  .panel-head h2 { font-family:var(--jp);font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0.5px;}
+  .panel-head .badge {
+    font-family:var(--mono);font-size:9px;font-weight:600;color:var(--text-dim);
+    padding:3px 8px;background:var(--surface-inset);border-radius:100px;letter-spacing:1px;
+  }
+  
+  /* Allows scrolling inside the panel-body */
+  .panel-body { 
+    padding:16px;flex:1;min-height:0;overflow-y:auto; 
+    display:flex;flex-direction:column;gap:16px;
+  }
+  
+  /* Prevent scroll for RESULT center panel */
+  .panel-body.no-scroll { overflow:hidden; }
+
+  /* ═══ FORM FIELDS ═══ */
+  .field-group { margin-bottom: 20px; }
+  .field-group:last-child { margin-bottom: 0; }
+  
+  .group-title {
+    font-family:var(--jp);font-size:11px;font-weight:700;color:var(--primary);
+    margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--primary-light);
+    display:flex;align-items:center;gap:6px;
+  }
+  .group-title span { font-size:14px; }
+
+  .field { margin-bottom:12px; }
+  .field:last-child { margin-bottom:0; }
+  .field-label {
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:var(--jp);font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:6px;
+  }
+
+  /* ═══ EQUIPMENT TABLE ═══ */
+  .eq-table {
+    width:100%;border-collapse:collapse;font-size:11px;font-family:var(--sans);
+    border:1px solid var(--border-light);border-radius:var(--r);overflow:hidden;
+  }
+  .eq-table th {
+    background:var(--bg-warm);color:var(--text-mid);font-weight:600;
+    padding:6px;text-align:center;border-bottom:1px solid var(--border-light);
+  }
+  .eq-table th:first-child { text-align:left;padding-left:10px; }
+  .eq-table td { padding:4px;border-bottom:1px solid var(--border-light);text-align:center;background:var(--surface); }
+  .eq-table tbody tr:last-child td { border-bottom:none; }
+  .eq-table tbody tr:hover td { background:#EFF6FF; }
+  
+  .eq-input {
+    width:100%;border:1px solid transparent;background:transparent;
+    font-family:var(--mono);font-size:12px;color:var(--text);font-weight:600;text-align:center;
+    padding:4px 0;outline:none;border-radius:4px;transition:all 0.2s;
+  }
+  .eq-input:focus { border-color:var(--primary);background:#fff;box-shadow:0 0 0 2px var(--primary-light); }
+  .eq-input.text-left { text-align:left;font-family:var(--sans);font-weight:500;padding-left:6px; }
+  
+  .btn-del {
+    background:transparent;border:none;color:var(--text-dim);font-size:14px;
+    cursor:pointer;border-radius:4px;width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+  }
+  .btn-del:hover { background:var(--surface-inset);color:var(--red); }
+  
+  .btn-add {
+    display:flex;align-items:center;justify-content:center;gap:4px;
+    width:100%;padding:6px;margin-top:4px;border-radius:var(--r);
+    background:var(--surface-inset);border:1px dashed var(--border-dark);
+    font-family:var(--jp);font-size:10px;font-weight:600;color:var(--text-mid);
+    cursor:pointer;transition:all 0.2s;
+  }
+  .btn-add:hover { background:var(--bg-warm);color:var(--text-2);border-style:solid; }
+
+  /* ═══ STEPPER & HORIZONTAL INPUTS ═══ */
+  .input-row { display:flex;gap:10px; }
+  .input-box { flex:1; }
+  
+  .stepper {
+    display:flex;align-items:center;height:36px;
+    border:1px solid var(--border);border-radius:var(--r);background:var(--surface);
+    overflow:hidden;transition:all 0.2s;
+  }
+  .stepper:focus-within { border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-light); }
+  .step-btn {
+    width:36px;height:100%;border:none;background:var(--bg);
+    color:var(--text-mid);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:all 0.15s;
+  }
+  .step-btn:hover { background:var(--bg-warm);color:var(--ink); }
+  .step-btn:active { background:var(--surface-inset); }
+  .step-val {
+    flex:1;min-width:0;height:100%;border:none;background:transparent;outline:none;
+    text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--primary);
+    -moz-appearance:textfield;
+  }
+  .step-val::-webkit-outer-spin-button,.step-val::-webkit-inner-spin-button { -webkit-appearance:none;margin:0; }
+  .step-unit {
+    font-family:var(--jp);font-size:10px;color:var(--text-dim);font-weight:500;
+    padding-right:12px;background:var(--surface);
+  }
+
+  .standard-input {
+    width:100%;height:36px;border:1px solid var(--border);border-radius:var(--r);
+    padding:0 12px;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);
+    outline:none;transition:all 0.2s;
+  }
+  .standard-input:focus { border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-light); }
+  .input-with-unit { position:relative; }
+  .input-with-unit .standard-input { padding-right:30px;text-align:right;}
+  .input-with-unit .unit {
+    position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    font-family:var(--jp);font-size:10px;color:var(--text-dim);pointer-events:none;
+  }
+
+  /* ═══ RESULT METRICS (CENTER) ═══ */
+  .metrics-wrap {
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  }
+  .metric {
+    border-radius:var(--r-md);padding:16px 14px;text-align:center;
+    border:1px solid var(--border-light);background:var(--bg);position:relative;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  /* Primary Hero (Total Cost) */
+  .metric.hero {
+    grid-column:1/-1;background:var(--surface-dark);border-color:transparent;
+  }
+  .metric.hero .metric-label { color:rgba(255,255,255,0.6); }
+  .metric.hero .metric-sub { color:rgba(255,255,255,0.4);border-top:1px solid rgba(255,255,255,0.1); }
+  
+  /* Highlight Card (Savings) */
+  .metric.highlight {
+    grid-column:1/-1;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+    border:1px solid var(--emerald-border);
+  }
+
+  .metric-label { font-family:var(--mono);font-size:11px;color:var(--text-dim);font-weight:600;margin-bottom:6px;letter-spacing:1px; }
+  .metric-label.sm { font-size:10px; }
+  
+  .metric-val { font-family:var(--display);font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-0.5px;line-height:1; }
+  .metric-val.big { font-size:42px;font-weight:800; }
+  .metric-val.medium { font-size:32px;font-weight:800; }
+  .metric-val.accent { color:#fff; }
+  .metric-val.success { color:var(--emerald); }
+  .metric-val.danger { color:var(--red); }
+  
+  .metric-sub { 
+    font-family:var(--jp);font-size:10px;color:var(--text-dim);
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .metric-sub strong { font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text); }
+  .metric.highlight .metric-sub strong { color:var(--emerald); }
+
+  /* ═══ CHART ═══ */
+  .chart-section {
+    flex:1;min-height:0;display:flex;flex-direction:column;
+    border:1px solid var(--border-light);border-radius:var(--r-md);
+    background:var(--surface);box-shadow:0 1px 2px rgba(15,23,42,0.02);
+  }
+  .chart-head {
+    padding:12px 16px;border-bottom:1px solid var(--border-light);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .chart-title { font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:1px;}
+  .chart-legend { font-size:10px;color:var(--text-dim); }
+  
+  .chart-body { flex:1;min-height:0;padding:16px;position:relative; }
+
+  /* ═══ BREAKDOWN (RIGHT) ═══ */
+  .breakdown {
+    border:1px solid var(--border-light);border-radius:var(--r-md);
+    overflow:hidden;font-family:var(--sans);
+  }
+  .bk-section {
+    padding:4px 14px;font-size:10px;font-weight:700;letter-spacing:1.5px;
+    border-bottom:1px solid var(--border-light);
+  }
+  /* Category Colors */
+  .bk-section.gray { background:#F5F5F4;color:var(--text-mid); }
+  .bk-section.blue { background:#F0F6FF;color:#2563EB; }
+  .bk-section.green { background:#EFF6FF;color:#2563EB; }
+  
+  /* Rows */
+  .bk-row {
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 14px;font-size:12px;background:var(--surface);
+    border-bottom:1px solid var(--border-light);
+  }
+  .bk-row.subtotal { border-bottom:2px solid var(--border); }
+  .bk-row.total { padding:14px;background:#F0F6FF; }
+  .bk-row:last-child { border-bottom:none; }
+  
+  .bk-label { color:var(--text-mid);font-weight:500;font-family:var(--jp); }
+  .bk-label .dot { display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px; }
+  .bk-value { font-family:var(--mono);font-weight:600;color:var(--text-2);font-size:13px; }
+  .bk-value.strong { font-size:15px;font-weight:700;color:var(--ink); }
+  
+  .bk-equation { 
+    padding:8px 14px 12px;background:#F0F6FF;font-size:11px;
+    display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--border-light);
+  }
+  .bk-eq-row { display:flex;justify-content:space-between;color:var(--text-dim);font-family:var(--mono); }
+  
+  /* ═══ FOOTER ═══ */
+  .footer {
+    flex-shrink:0;text-align:center;padding:8px;
+    font-family:var(--mono);font-size:9px;color:var(--text-dim);
+    border-top:1px solid var(--border-light);letter-spacing:1.5px;position:relative;z-index:1;
+  }
+
+  /* ═══ DISCLAIMER ═══ */
+  .disclaimer {
+    padding:12px;background:var(--surface-inset);
+    border:1px solid var(--border);border-radius:var(--r);
+    font-family:var(--jp);font-size:10px;color:var(--text-mid);line-height:1.6;flex-shrink:0;
+  }
+  .disclaimer strong { color:var(--text-2); }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width:1200px) {
+    .main { grid-template-columns:300px 1fr 300px;padding:12px;}
+    .metric-val.big { font-size:36px; }
+    .metric-val.medium { font-size:28px;}
+  }
+  
+  @media (max-width:900px) {
+    /* Fallback to scroll view on small screens */
+    html, body { overflow:auto; }
+    .app { height:auto;min-height:100vh; }
+    .main { grid-template-columns:1fr;display:flex;flex-direction:column;overflow:visible; }
+    .panel.grow { flex:none; }
+    .panel-body { overflow:visible; }
+    .chart-section { min-height:400px; }
+    .header-inner { padding:0 16px; }
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+
+    /* 全体リセット */
+    *, *::before, *::after { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    html, body { overflow:visible !important; height:auto !important; background:#fff !important; }
+    .app { height:auto !important; }
+    body::before { display:none !important; }
+
+    /* ヘッダー */
+    .header { border-bottom:2px solid #1a6bc4 !important; margin-bottom:12px; }
+    .header-inner { height:auto !important; padding:8px 16px !important; }
+    .btn-print, .header-badge { display:none !important; }
+
+    /* メインをフレックス横並び */
+    .main {
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:flex-start !important;
+      gap:14px !important;
+      padding:0 !important;
+      height:auto !important;
+      overflow:visible !important;
+      max-width:none !important;
+    }
+
+    /* 左カラム（入力）・チャート・免責事項を非表示 */
+    .col:first-child { display:none !important; }
+    .chart-section { display:none !important; }
+    .disclaimer { display:none !important; }
+
+    /* 中央カラム・右カラムの幅 */
+    .col:nth-child(2) { flex:1 !important; min-width:0 !important; }
+    .col:nth-child(3) { width:320px !important; flex-shrink:0 !important; }
+
+    /* パネル・高さ制限を全解除 */
+    .col { gap:10px !important; }
+    .panel, .panel.grow {
+      flex:none !important; height:auto !important;
+      min-height:unset !important; overflow:visible !important;
+      box-shadow:none !important; border:1px solid #C0D4F0 !important;
+    }
+    .panel-body {
+      overflow:visible !important; height:auto !important;
+      max-height:none !important; flex:none !important;
+    }
+    .panel-body.no-scroll { overflow:visible !important; }
+    .breakdown { overflow:visible !important; }
+
+    /* カラー印刷 */
+    .metric { background:#F0F6FF !important; }
+    .metric.hero { background:#1E3A5F !important; }
+    .metric.hero .metric-label { color:rgba(255,255,255,0.6) !important; }
+    .metric.hero .metric-sub { color:rgba(255,255,255,0.4) !important; border-top:1px solid rgba(255,255,255,0.1) !important; }
+    .metric.hero .metric-val { color:#fff !important; }
+    .metric.highlight { background:#DBEAFE !important; border:2px solid #2563EB !important; }
+    .bk-section.gray { background:#F5F5F4 !important; }
+    .bk-section.blue { background:#F0F6FF !important; }
+    .bk-section.green { background:#EFF6FF !important; color:#2563EB !important; }
+    .bk-row.total { background:#F0F6FF !important; }
+    .bk-equation { background:#F0F6FF !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="logo-row">
+          <div class="logo-mark"><span>🧺</span></div>
+          <div><div class="logo-text">WASH SIM<span class="sub">Cost Optimizer</span></div></div>
+        </div>
+        <div class="header-sep"></div>
+        <div class="header-title">施設向け 私物洗濯コストシミュレーター</div>
+      </div>
+      <div class="header-right">
+        <div class="header-badge"><span class="dot"></span>LIVE CALCULATION</div>
+        <button class="print-btn" onclick="window.print()">🖨 提案書印刷</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- COL 1: INPUT -->
+    <div class="col">
+      <div class="panel grow">
+        <div class="panel-head">
+          <h2>条件設定</h2>
+          <span class="badge">INPUT</span>
+        </div>
+        <div class="panel-body">
+          
+          <div class="field-group">
+            <div class="group-title"><span>⚙️</span> 機材情報（業務用/家庭用）</div>
+            
+            <div class="field">
+              <div class="field-label">業務用 洗濯機</div>
+              <table class="eq-table" id="w-biz">
+                <thead><tr><th>型番</th><th>台数</th><th>回/日</th><th>円/回</th><th></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><input type="text" class="eq-input text-left" value="W4240H" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="2" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="3" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="329" min="0" onchange="calc()"></td>
+                    <td><button class="btn-del" onclick="delR(this,'w-biz')">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button class="btn-add" onclick="addR('w-biz')">＋ 機種を追加</button>
+            </div>
+
+            <div class="field">
+              <div class="field-label">家庭用 洗濯機</div>
+              <table class="eq-table" id="w-home">
+                <thead><tr><th>型番</th><th>台数</th><th>回/日</th><th>円/回</th><th></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><input type="text" class="eq-input text-left" value="NA-F70" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="2" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="1" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="32" min="0" onchange="calc()"></td>
+                    <td><button class="btn-del" onclick="delR(this,'w-home')">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button class="btn-add" onclick="addR('w-home')">＋ 機種を追加</button>
+            </div>
+
+            <div class="field">
+              <div class="field-label">業務用 乾燥機</div>
+              <table class="eq-table" id="d-biz">
+                <thead><tr><th>型番</th><th>台数</th><th>回/日</th><th>円/回</th><th></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><input type="text" class="eq-input text-left" value="T4530" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="2" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="4" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="462" min="0" onchange="calc()"></td>
+                    <td><button class="btn-del" onclick="delR(this,'d-biz')">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button class="btn-add" onclick="addR('d-biz')">＋ 機種を追加</button>
+            </div>
+
+            <div class="field">
+              <div class="field-label">家庭用 乾燥機</div>
+              <table class="eq-table" id="d-home">
+                <thead><tr><th>型番</th><th>台数</th><th>回/日</th><th>円/回</th><th></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><input type="text" class="eq-input text-left" value="N-UD71" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="2" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="1" min="1" onchange="calc()"></td>
+                    <td><input type="number" class="eq-input" value="47" min="0" onchange="calc()"></td>
+                    <td><button class="btn-del" onclick="delR(this,'d-home')">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button class="btn-add" onclick="addR('d-home')">＋ 機種を追加</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="group-title"><span>👷</span> 運用コスト（人件・消耗・修繕）</div>
+            
+            <div class="input-row">
+              <div class="field input-box">
+                <div class="field-label">時給</div>
+                <div class="input-with-unit">
+                  <input type="number" id="i_wage" class="standard-input" value="1500" min="0" onchange="calc()">
+                  <span class="unit">円/時</span>
+                </div>
+              </div>
+              <div class="field input-box">
+                <div class="field-label">作業時間/日</div>
+                <div class="stepper">
+                  <button class="step-btn" onclick="stp('i_hours',-0.5)">−</button>
+                  <input type="number" class="step-val" id="i_hours" value="3" step="0.5" min="0" onchange="calc()">
+                  <span class="step-unit">h</span>
+                  <button class="step-btn" onclick="stp('i_hours',0.5)">＋</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="field input-box">
+                <div class="field-label">担当人数</div>
+                <div class="stepper">
+                  <button class="step-btn" onclick="stp('i_count',-1)">−</button>
+                  <input type="number" class="step-val" id="i_count" value="1" min="1" onchange="calc()">
+                  <span class="step-unit">人</span>
+                  <button class="step-btn" onclick="stp('i_count',1)">＋</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="field input-box">
+                <div class="field-label">消耗品費（月額）</div>
+                <div class="input-with-unit">
+                  <input type="number" id="i_cons" class="standard-input" value="20000" min="0" onchange="calc()">
+                  <span class="unit">円/月</span>
+                </div>
+              </div>
+              <div class="field input-box">
+                <div class="field-label">メンテ費（月額）</div>
+                <div class="input-with-unit">
+                  <input type="number" id="i_maint" class="standard-input" value="10000" min="0" onchange="calc()">
+                  <span class="unit">円/月</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="group-title" style="color:#2563EB; border-color:rgba(37,99,235,0.1);"><span>🏢</span> 外部委託シミュレーション</div>
+            <div class="field">
+              <div class="field-label">外部委託費の想定額（月額・税抜）</div>
+              <div class="input-with-unit">
+                <input type="number" id="i_outsource" class="standard-input" value="250000" min="0" onchange="calc()" style="color:#2563EB;">
+                <span class="unit">円/月</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 2: RESULTS (CENTER) -->
+    <div class="col">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>シミュレーション結果</h2>
+          <span class="badge">SIMULATION</span>
+        </div>
+        <div class="panel-body no-scroll">
+          <div class="metrics-wrap">
+            
+            <div class="metric hero">
+              <div class="metric-label">現在かかっている運用コスト</div>
+              <div class="metric-val big accent" id="m_total">¥345,004</div>
+              <div class="metric-sub">
+                <span>年間想定コスト</span><strong id="m_total_yr">¥4,140,048</strong>
+              </div>
+            </div>
+
+            <div class="metric highlight">
+              <div class="metric-label sm" style="color:var(--emerald);">✨ 外部委託した場合の削減効果</div>
+              <div class="metric-val medium success" id="m_save">¥95,004</div>
+              <div class="metric-sub">
+                <span>年間累計</span><strong id="m_save_yr">¥1,140,048</strong>
+              </div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label sm">コスト削減率</div>
+              <div class="metric-val" id="m_pct">27.5%</div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-label sm">5年間の削減額（試算）</div>
+              <div class="metric-val" id="m_save_5y">¥5,700,240</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-section">
+        <div class="chart-head">
+          <div class="chart-title">現在の使用コスト内訳グラフ</div>
+          <div class="chart-legend">※月間（30.5日稼働換算）</div>
+        </div>
+        <div class="chart-body">
+          <canvas id="costChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="disclaimer">
+        <strong>⚠ シミュレーションの前提条件</strong><br>
+        1ヶ月を平均 30.5日 として稼働日数を固定し計算しています。実際の数値は環境や水道・電気の基本料金等によって変動する「概算試算（目安）」となります。
+      </div>
+    </div>
+
+    <!-- COL 3: DETAILS (RIGHT) -->
+    <div class="col">
+      <div class="panel grow">
+        <div class="panel-head">
+          <h2>算出明細</h2>
+          <span class="badge">DETAIL BREAKDOWN</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          
+          <div class="breakdown">
+            
+            <div class="bk-section gray">設備・光熱費</div>
+            <div class="bk-row">
+              <span class="bk-label"><span class="dot" style="background:#3b82f6;"></span>業務用洗濯機</span>
+              <span class="bk-value" id="b_wb">¥0</span>
+            </div>
+            <div class="bk-row">
+              <span class="bk-label"><span class="dot" style="background:#60a5fa;"></span>家庭用洗濯機</span>
+              <span class="bk-value" id="b_wh">¥0</span>
+            </div>
+            <div class="bk-row">
+              <span class="bk-label"><span class="dot" style="background:#2563EB;"></span>業務用乾燥機</span>
+              <span class="bk-value" id="b_db">¥0</span>
+            </div>
+            <div class="bk-row subtotal">
+              <span class="bk-label"><span class="dot" style="background:#93C5FD;"></span>家庭用乾燥機</span>
+              <span class="bk-value" id="b_dh">¥0</span>
+            </div>
+
+            <div class="bk-section gray">運用作業費</div>
+            <div class="bk-row">
+              <span class="bk-label"><span class="dot" style="background:#1D4ED8;"></span>月間人件費</span>
+              <span class="bk-value" id="b_labor">¥0</span>
+            </div>
+            <div class="bk-row">
+              <span class="bk-label"><span class="dot" style="background:#BFDBFE;"></span>消耗品費（洗剤等）</span>
+              <span class="bk-value" id="b_cons">¥0</span>
+            </div>
+            <div class="bk-row subtotal">
+              <span class="bk-label"><span class="dot" style="background:#f43f5e;"></span>修繕・メンテ費</span>
+              <span class="bk-value" id="b_maint">¥0</span>
+            </div>
+
+            <div class="bk-row total">
+              <span class="bk-label" style="font-weight:700;color:var(--text);">現在の使用コスト総額</span>
+              <span class="bk-value strong" id="b_total">¥0</span>
+            </div>
+
+            <div class="bk-section blue">コスト削減シミュレーション</div>
+            <div class="bk-equation">
+              <div class="bk-eq-row"><span>使用コスト</span><span id="q_total">¥0</span></div>
+              <div class="bk-eq-row"><span>外部委託費</span><span id="q_out">▲ ¥0</span></div>
+            </div>
+            <div class="bk-row total" style="background:#EFF6FF; border-top:1px solid #BFDBFE;">
+              <span class="bk-label" style="font-weight:700;color:#2563EB;">月額削減見込み額</span>
+              <span class="bk-value strong" style="color:#2563EB;font-size:16px;" id="b_save">¥0</span>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+      
+      <div class="footer">© 2026 LAUNDRY COST OPTIMIZER</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Logic
+const DAYS = 30.5;
+const COLORS = ['#3b82f6','#60a5fa','#8b5cf6','#a78bfa','#f59e0b','#10b981','#f43f5e'];
+
+const ctx = document.getElementById('costChart').getContext('2d');
+let costChart = new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: ['業務用洗濯機','家庭用洗濯機','業務用乾燥機','家庭用乾燥機','人件費','消耗品費','メンテ費'],
+    datasets: [{
+      data: [0,0,0,0,0,0,0],
+      backgroundColor: COLORS,
+      borderWidth: 2, borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth:12, font:{size:11, family:"'Noto Sans JP', sans-serif"} } },
+      tooltip: { callbacks: { label: c => ` ¥${c.raw.toLocaleString()}（${Math.round(c.raw/c.dataset.data.reduce((a,b)=>a+b,0)*100)}%）` } }
+    }, cutout: '65%'
+  }
+});
+
+const fmt = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const v = id => parseFloat(document.getElementById(id).value) || 0;
+
+function stp(id, delta) {
+  const el = document.getElementById(id);
+  let val = parseFloat(el.value) + delta;
+  const min = parseFloat(el.min || 0);
+  el.value = Math.max(min, val);
+  calc();
+}
+
+function getRows(id) {
+  const trs = document.querySelectorAll(`#${id} tbody tr`);
+  return Array.from(trs).map(tr => {
+    const i = tr.querySelectorAll('input');
+    return { u:parseFloat(i[1].value)||0, f:parseFloat(i[2].value)||0, c:parseFloat(i[3].value)||0 };
+  });
+}
+
+function calcEq(rows) { return rows.reduce((s,r) => s + (r.u*r.f*r.c*DAYS), 0); }
+
+function addR(id) {
+  const t = document.querySelector(`#${id} tbody`);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="text" class="eq-input text-left" value="新機種" onchange="calc()"></td>
+    <td><input type="number" class="eq-input" value="1" min="1" onchange="calc()"></td>
+    <td><input type="number" class="eq-input" value="1" min="1" onchange="calc()"></td>
+    <td><input type="number" class="eq-input" value="100" min="0" onchange="calc()"></td>
+    <td><button class="btn-del" onclick="delR(this,'${id}')">✕</button></td>`;
+  t.appendChild(tr); calc();
+}
+function delR(btn, id) {
+  const t = document.querySelector(`#${id} tbody`); if(t.rows.length<=1)return;
+  btn.closest('tr').remove(); calc();
+}
+
+function calc() {
+  const wb = calcEq(getRows('w-biz'));
+  const wh = calcEq(getRows('w-home'));
+  const db = calcEq(getRows('d-biz'));
+  const dh = calcEq(getRows('d-home'));
+
+  const labor = v('i_hours') * v('i_wage') * v('i_count') * DAYS;
+  const cons = v('i_cons');
+  const maint = v('i_maint');
+  
+  const total = wb + wh + db + dh + labor + cons + maint;
+  const out = v('i_outsource');
+  const save = total - out;
+  
+  // Update Metrics
+  document.getElementById('m_total').textContent = fmt(total);
+  document.getElementById('m_total_yr').textContent = fmt(total * 12);
+  
+  const pct = total > 0 ? (save / total * 100).toFixed(1) : 0;
+  
+  const saveEl = document.getElementById('m_save');
+  saveEl.textContent = save > 0 ? fmt(save) : '¥0';
+  saveEl.className = 'metric-val medium ' + (save > 0 ? 'success' : 'danger');
+  
+  document.getElementById('m_save_yr').textContent = fmt(save * 12);
+  document.getElementById('m_save_5y').textContent = fmt(save * 12 * 5);
+  document.getElementById('m_pct').textContent = pct + '%';
+
+  // Update Breakdown
+  document.getElementById('b_wb').textContent = fmt(wb);
+  document.getElementById('b_wh').textContent = fmt(wh);
+  document.getElementById('b_db').textContent = fmt(db);
+  document.getElementById('b_dh').textContent = fmt(dh);
+  document.getElementById('b_labor').textContent = fmt(labor);
+  document.getElementById('b_cons').textContent = fmt(cons);
+  document.getElementById('b_maint').textContent = fmt(maint);
+  document.getElementById('b_total').textContent = fmt(total);
+  
+  document.getElementById('q_total').textContent = fmt(total);
+  document.getElementById('q_out').textContent = '▲ ' + fmt(out);
+  
+  const finalSaveEl = document.getElementById('b_save');
+  finalSaveEl.textContent = save > 0 ? '+'+fmt(save) : fmt(save);
+  finalSaveEl.style.color = save > 0 ? '#2563EB' : 'var(--red)';
+
+  // Update Chart
+  costChart.data.datasets[0].data = [wb, wh, db, dh, labor, cons, maint];
+  costChart.update();
+}
+
+calc();
+</script>
+</body>
+</html>
